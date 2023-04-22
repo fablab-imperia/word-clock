@@ -5,7 +5,7 @@
 // Generic I2C support
 #include <Wire.h>
 
-#define UPDATE_PERIOD_MINUTES 2
+#define UPDATE_PERIOD_MINUTES 1
 
 RTC_DS1307 rtc;
 
@@ -13,20 +13,22 @@ RTC_DS1307 rtc;
 //List of leds is terminated by -1 (invalid value)
 char ledsToLightUp[144];
 
-char charMatrix[12][12] = 
+char ouputBuffer[144];
+
+char charMatrix[144] = 
 {
-  {'!','[','M','E','Z','Z','A','N','O','T','T','E'},
-  {']','M','E','Z','Z','O','G','I','O','R','N','O'},
-  {'S','O','N','O','E','^','U','N','A','V','L','E'},
-  {'D','U','E','T','R','E','C','I','N','Q','U','E'},
-  {'Q','U','A','T','T','R','O','S','E','T','T','E'},
-  {'S','E','I','O','T','T','O','D','I','E','C','I'},
-  {'N','O','V','E','U','N','D','I','C','I','U','E'},
-  {'M','E','N','O','Q','U','A','R','A','N','T','A'},
-  {'D','I','E','C','I','U','N','M','E','Z','Z','A'},
-  {'V','E','N','T','I','C','T','R','E','N','T','A'},
-  {'M','C','I','N','Q','U','A','N','T','A','G','S'},
-  {'Q','U','A','R','T','O','C','I','N','Q','U','E'}
+  '!','[','M','E','Z','Z','A','N','O','T','T','E', 
+  ']','M','E','Z','Z','O','G','I','O','R','N','O',
+  'S','O','N','O','E','^','U','N','A','V','L','E',
+  'D','U','E','T','R','E','C','I','N','Q','U','E',
+  'Q','U','A','T','T','R','O','S','E','T','T','E',
+  'S','E','I','O','T','T','O','D','I','E','C','I',
+  'N','O','V','E','U','N','D','I','C','I','U','E',
+  'M','E','N','O','Q','U','A','R','A','N','T','A',
+  'D','I','E','C','I','U','N','M','E','Z','Z','A',
+  'V','E','N','T','I','C','T','R','E','N','T','A',
+  'M','C','I','N','Q','U','A','N','T','A','G','S',
+  'Q','U','A','R','T','O','C','I','N','Q','U','E'
 };
 
 const char* hoursInWords[] = {
@@ -147,28 +149,64 @@ const char* hourTemplates[] = {
 };
 
 
-const char ledArray[144];
+char ledArray[144];
 
 unsigned int lastTimeInMinutes = 0;
 
-String currentTimeAsWords(const int hours, const int minutes) 
+void currentTimeAsWords(char* ouputBuffer, int hours, const int minutes) 
 {
-  String tmpl = String(hourTemplates[hours]);
-  const char* minutesComponentInWords = minutesInWords[minutes];  
-  
+  //clear buffer
+  memset(ouputBuffer,0,144);
+  const char* minutesComponentInWords = minutesInWords[minutes];    
   const char* hoursComponentInWords = NULL;
   // If minutes are more than 35 we must increase hours
-  int fixedHours = (minutes > 35)? hours + 1 : hours; 
+  int fixedHours = (minutes > 35)? (hours + 1) % 24 : hours; 
   hoursComponentInWords = hoursInWords[fixedHours];
+  
+  const char* tmpl = hourTemplates[fixedHours];
 
-  tmpl.replace("$ORE", hoursComponentInWords);
-  tmpl.replace("$MIN",minutesComponentInWords);
+  char* hoursPlaceholderStart = strstr(tmpl,"$ORE");
+  if (hoursPlaceholderStart != NULL) 
+  {
+    int positionOfHoursPlaceHolderStart = hoursPlaceholderStart - tmpl;
+    char* lastPos = strncpy(ouputBuffer,tmpl,positionOfHoursPlaceHolderStart);
+    lastPos = strncpy(lastPos,hoursComponentInWords,strlen(hoursComponentInWords));
+  }
 
-  return tmpl;
+
 }
 
-void fillLedsArrayNeededToWriteTime(const char* timeInWords, const char* ledArray, char matrix[12][12])
+void fillLedsArrayNeededToWriteTime(char* timeInWords, char* ledArray, char* charMatrix)
 {
+  int ledArrayIndex = 0;
+  //delimiter between words
+  const char delimiter[2] = " ";
+  //reset the global array
+  memset(ledArray,-1,144);
+  
+   /* get the first token */
+  char* token = strtok(timeInWords, delimiter);
+   
+   /* walk through other tokens */
+   while( token != NULL ) {
+      
+      char* occurrence = strstr(charMatrix,token);
+      if (occurrence != NULL) 
+      {
+        int occurrencePosition = occurrence - charMatrix;
+        int tokenLength = strlen(token);
+        for (size_t j = 0; j < tokenLength; j++)
+        {
+          ledArray[ledArrayIndex++]=occurrencePosition+j;
+        }
+      } 
+      else 
+      {
+        return;
+      }
+    
+      token = strtok(NULL, delimiter);
+   }
   
 }
 
@@ -202,6 +240,16 @@ void loop() {
       Serial.print(currentHours);
       Serial.print(":");
       Serial.println(currentMinutes);
+
+      fillLedsArrayNeededToWriteTime((char*) currentTime.c_str(),ledArray,charMatrix);
+      size_t arrayIndex=0;
+      while (ledArray[arrayIndex] != -1)
+      {
+        Serial.println((int)ledArray[arrayIndex]);
+        arrayIndex++;
+      }
+      
+      
     }
 
     delay(10000);
