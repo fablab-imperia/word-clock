@@ -16,7 +16,7 @@ char ledsToLightUp[144];
 char ouputBuffer[144];
 
 
-char charMatrix[144] = 
+char charMatrix[145] = 
 {
   '!','[','M','E','Z','Z','A','N','O','T','T','E', 
   ']','M','E','Z','Z','O','G','I','O','R','N','O',
@@ -29,7 +29,7 @@ char charMatrix[144] =
   'D','I','E','C','I','U','N','M','E','Z','Z','A',
   'V','E','N','T','I','C','T','R','E','N','T','A',
   'M','C','I','N','Q','U','A','N','T','A','G','S',
-  'Q','U','A','R','T','O','C','I','N','Q','U','E'
+  'Q','U','A','R','T','O','C','I','N','Q','U','E','\0'
 };
 
  const char* hoursInWords[] = {
@@ -90,7 +90,7 @@ char charMatrix[144] =
 };
 
 
-char ledArray[144];
+int ledArray[144];
 
 unsigned int lastTimeInMinutes = 0;
 
@@ -155,15 +155,61 @@ void currentTimeAsWords(char* outputBuffer, int hours, const int minutes)
   }
 }
 
-void fillLedsArrayNeededToWriteTime(char* timeInWords, char* ledArray, char* charMatrix)
+void fillLedsArrayNeededToWriteTime(const char* timeInWords, int* ledArray, char* charMatrix)
 {
-  int ledArrayIndex = 0;
   //delimiter between words
   const char delimiter = ' ';
   //reset the global array
   memset(ledArray,-1,144);
   
-  char* 
+  const char* tokenStringPointer = timeInWords;
+  const char* tokenStart = tokenStringPointer; 
+  const char* matrixScanner = charMatrix; 
+  int ledArrayIndex= 0;
+
+  char currentToken[50];
+
+  while (true) 
+  {
+    if ((*tokenStringPointer) !=  delimiter && (*tokenStringPointer) != '\0') 
+    {
+      tokenStringPointer++;
+    } 
+    else 
+    {
+       size_t numberOfChars = tokenStringPointer - tokenStart;
+       for (size_t i = 0; i < numberOfChars; i++)
+       {
+         currentToken[i] = (*tokenStart);
+         tokenStart++;
+       }
+       currentToken[numberOfChars]= '\0';
+
+       matrixScanner = strstr(matrixScanner,currentToken);
+       if (matrixScanner != NULL)
+       {
+          int indexOfFirstChar = matrixScanner - charMatrix;
+
+          for (size_t i = 0; i < numberOfChars; i++)
+          {
+            ledArray[ledArrayIndex] = indexOfFirstChar + i;
+            ledArrayIndex++;
+          }
+       }
+
+       if ((*tokenStringPointer) == '\0')
+       {
+          break;
+       }  
+       else 
+       {
+          tokenStringPointer++;
+          tokenStart = tokenStringPointer;
+       }
+    }
+  }
+
+
   
 }
 
@@ -189,7 +235,7 @@ void loop() {
     int currentHours = now.hour();
     int currentMinutes = now.minute();
     unsigned int currentTimeInMinutes = currentHours*60 + currentMinutes;
-    if ((lastTimeInMinutes == 0) || currentTimeInMinutes == lastTimeInMinutes + UPDATE_PERIOD_MINUTES) 
+    if ((lastTimeInMinutes == 0) || currentTimeInMinutes == (lastTimeInMinutes + UPDATE_PERIOD_MINUTES) % 1440 ) 
     {
       currentTimeAsWords(ouputBuffer, currentHours, currentMinutes);
       lastTimeInMinutes = currentTimeInMinutes;
@@ -201,7 +247,7 @@ void loop() {
       Serial.print(":");
       Serial.println(currentMinutes);
 
-      fillLedsArrayNeededToWriteTime("SONO LE SETTE E VENTI CINQUE",ledArray,charMatrix);
+      fillLedsArrayNeededToWriteTime(ouputBuffer,ledArray,charMatrix);
       size_t arrayIndex=0;
       while (ledArray[arrayIndex] != -1)
       {
