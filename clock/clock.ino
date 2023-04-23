@@ -15,6 +15,7 @@ char ledsToLightUp[144];
 
 char ouputBuffer[144];
 
+
 char charMatrix[144] = 
 {
   '!','[','M','E','Z','Z','A','N','O','T','T','E', 
@@ -31,7 +32,7 @@ char charMatrix[144] =
   'Q','U','A','R','T','O','C','I','N','Q','U','E'
 };
 
-const char* hoursInWords[] = {
+ const char* hoursInWords[] = {
   "MEZZANOTTE",
   "^UNA",
   "LE DUE",
@@ -58,94 +59,34 @@ const char* hoursInWords[] = {
   "LE UNDICI"  
 };
 
-const char* minutesInWords[] = {
+ const char* minutesInWords[] = {
   "",
-  "E UNO",
-  "E DUE",
-  "E TRE",
-  "E QUATTRO",
   "E CINQUE",
-  "E SEI",
-  "E SETTE",
-  "E OTTO",
-  "E NOVE",
   "E DIECI",
-  "E UNDICI",
-  "E DODICI",
-  "E TREDICI",
-  "E QUATTORDICI",
   "E UN QUARTO",
-  "E SEDICI",
-  "E DICIASSETTE",
-  "E DICIOTTO",
-  "E DICIANNOVE",
   "E VENTI",
-  "E VENTUNO",
-  "E VENTI DUE",
-  "E VENTI TRE",
-  "E VENTI QUATTRO",
   "E VENTI CINQUE",
-  "E VENTI SEI",
-  "E VENTI SETTE",
-  "E VENTOTTO",
-  "E VENTI NOVE",
   "E MEZZA",
-  "E TRENTUNO",
-  "E TRENTA DUE",
-  "E TRENTA TRE",
-  "E TRENTA QUATTRO",
   "E TRENTA CINQUE",
-  "E TRENTA SEI",
-  "E TRENTA SETTE",
-  "E TRENTOTTO",
-  "E TRENTA NOVE",
   "MENO VENTI",
-  "MENO DICIANNOVE",
-  "MENO DICIOTTO",
-  "MENO DICIASSETTE",
-  "MENO SEDICI",
   "MENO UN QUARTO",
-  "MENO QUATTORDICI",
-  "MENO TREDICI",
-  "MENO DODICI",
-  "MENO UNDICI",
   "MENO DIECI",
-  "MENO NOVE",
-  "MENO OTTO",
-  "MENO SETTE",
-  "MENO SEI",
   "MENO CINQUE"
-  "MENO QUATTRO",
-  "MENO TRE",
-  "MENO DUE",
-  "MENO UNO"
 };
 
-const char* hourTemplates[] = {
-  "! $ORE $MIN",
-  "! $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "! $ORE $MIN",
-  "! $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN",
-  "SONO $ORE $MIN"
+ const char* hourTemplates[] = {
+  "! $H $M",
+  "! $H $M",
+  "SONO $HH $M",
+  "SONO $ $M",
+  "SONO $H $M",
+  "SONO $H $M",
+  "SONO $H $M",
+  "SONO $H $M",
+  "SONO $H $M",
+  "SONO $H $M",
+  "SONO $H $M",
+  "SONO $H $M"
 };
 
 
@@ -153,60 +94,76 @@ char ledArray[144];
 
 unsigned int lastTimeInMinutes = 0;
 
-void currentTimeAsWords(char* ouputBuffer, int hours, const int minutes) 
+
+
+void currentTimeAsWords(char* outputBuffer, int hours, const int minutes) 
 {
   //clear buffer
-  memset(ouputBuffer,0,144);
-  const char* minutesComponentInWords = minutesInWords[minutes];    
+  memset(outputBuffer,'\0',144);
+
+  //convert minutes to nearest multiple of 5
+  int indexForMinutes = (minutes / 5);
+  const char* minutesComponentInWords = minutesInWords[indexForMinutes];   
+
   const char* hoursComponentInWords = NULL;
+
   // If minutes are more than 35 we must increase hours
   int fixedHours = (minutes > 35)? (hours + 1) % 24 : hours; 
   hoursComponentInWords = hoursInWords[fixedHours];
-  
-  const char* tmpl = hourTemplates[fixedHours];
 
-  char* hoursPlaceholderStart = strstr(tmpl,"$ORE");
-  if (hoursPlaceholderStart != NULL) 
+  int indexForTmpl = fixedHours % 12;
+  const char* tmpl = hourTemplates[indexForTmpl];
+
+  const char* tmplPointer = tmpl;
+  char* outputBufferPointer = outputBuffer;
+
+  while ( (*tmplPointer) != '\0') 
   {
-    int positionOfHoursPlaceHolderStart = hoursPlaceholderStart - tmpl;
-    char* lastPos = strncpy(ouputBuffer,tmpl,positionOfHoursPlaceHolderStart);
-    lastPos = strncpy(lastPos,hoursComponentInWords,strlen(hoursComponentInWords));
+     //if char in template string is not special char
+     if ((*tmplPointer) != '$') 
+     {
+        //copy char into output buffer
+        (*outputBufferPointer) = (*tmplPointer);
+        //move on both pointers
+        outputBufferPointer++;
+        tmplPointer++;
+     } 
+     else 
+     {
+      //When a special char is found, we must check if its next is M or H to expand it
+      tmplPointer++;
+      const char* stringToCopyPointer = NULL;
+      //point to the right string to copy
+      if ((*tmplPointer) == 'M')
+      {
+         stringToCopyPointer = minutesComponentInWords;      
+      } 
+      else 
+      {
+        stringToCopyPointer = hoursComponentInWords;
+      }
+      //In any case copy each char
+      while((*stringToCopyPointer) != '\0')
+      {
+        (*outputBufferPointer) = (*stringToCopyPointer);
+        outputBufferPointer++;
+        stringToCopyPointer++;
+      }
+      //move tmplPointer to next char
+      tmplPointer++;
+     }
   }
-
-
 }
 
 void fillLedsArrayNeededToWriteTime(char* timeInWords, char* ledArray, char* charMatrix)
 {
   int ledArrayIndex = 0;
   //delimiter between words
-  const char delimiter[2] = " ";
+  const char delimiter = ' ';
   //reset the global array
   memset(ledArray,-1,144);
   
-   /* get the first token */
-  char* token = strtok(timeInWords, delimiter);
-   
-   /* walk through other tokens */
-   while( token != NULL ) {
-      
-      char* occurrence = strstr(charMatrix,token);
-      if (occurrence != NULL) 
-      {
-        int occurrencePosition = occurrence - charMatrix;
-        int tokenLength = strlen(token);
-        for (size_t j = 0; j < tokenLength; j++)
-        {
-          ledArray[ledArrayIndex++]=occurrencePosition+j;
-        }
-      } 
-      else 
-      {
-        return;
-      }
-    
-      token = strtok(NULL, delimiter);
-   }
+  char* 
   
 }
 
@@ -231,17 +188,20 @@ void loop() {
     DateTime now = rtc.now();
     int currentHours = now.hour();
     int currentMinutes = now.minute();
-    int currentTimeInMinutes = currentHours*60 + currentMinutes;
+    unsigned int currentTimeInMinutes = currentHours*60 + currentMinutes;
     if ((lastTimeInMinutes == 0) || currentTimeInMinutes == lastTimeInMinutes + UPDATE_PERIOD_MINUTES) 
     {
-      String currentTime = currentTimeAsWords(currentHours, currentMinutes);
+      currentTimeAsWords(ouputBuffer, currentHours, currentMinutes);
       lastTimeInMinutes = currentTimeInMinutes;
-      Serial.println(currentTime.c_str());
+    
+      Serial.print("In words: ");
+      Serial.println(ouputBuffer);
+
       Serial.print(currentHours);
       Serial.print(":");
       Serial.println(currentMinutes);
 
-      fillLedsArrayNeededToWriteTime((char*) currentTime.c_str(),ledArray,charMatrix);
+      fillLedsArrayNeededToWriteTime("SONO LE SETTE E VENTI CINQUE",ledArray,charMatrix);
       size_t arrayIndex=0;
       while (ledArray[arrayIndex] != -1)
       {
