@@ -5,15 +5,20 @@
 // Generic I2C support
 #include <Wire.h>
 
+#include "FastLED.h"
+
 #define UPDATE_PERIOD_MINUTES 1
+#define LED_PIN  5   
+
+#define SINGULAR_VERBAL_FORM 0
+#define PLURAL_VERBAL_FORM 1
+
+CRGB leds[144];
 
 RTC_DS1307 rtc;
 
-//Global array whose elements are ids of leds to light up to create the words we need.
-//List of leds is terminated by -1 (invalid value)
-char ledsToLightUp[144];
 
-char ouputBuffer[144];
+char ouputBuffer[80];
 
 
 char charMatrix[145] = 
@@ -30,6 +35,11 @@ char charMatrix[145] =
   'V','E','N','T','I','C','T','R','E','N','T','A',
   'M','C','I','N','Q','U','A','N','T','A','G','S',
   'Q','U','A','R','T','O','C','I','N','Q','U','E','\0'
+};
+
+const char* verbalForms[] = {
+  "! $H $M",
+  "SONO $H $M"
 };
 
  const char* hoursInWords[] = {
@@ -74,23 +84,23 @@ char charMatrix[145] =
   "MENO CINQUE"
 };
 
- const char* hourTemplates[] = {
-  "! $H $M",
-  "! $H $M",
-  "SONO $HH $M",
-  "SONO $ $M",
-  "SONO $H $M",
-  "SONO $H $M",
-  "SONO $H $M",
-  "SONO $H $M",
-  "SONO $H $M",
-  "SONO $H $M",
-  "SONO $H $M",
-  "SONO $H $M"
+ const int hourTemplates[] = {
+  SINGULAR_VERBAL_FORM,
+  SINGULAR_VERBAL_FORM,
+  PLURAL_VERBAL_FORM,
+  PLURAL_VERBAL_FORM,
+  PLURAL_VERBAL_FORM,
+  PLURAL_VERBAL_FORM,
+  PLURAL_VERBAL_FORM,
+  PLURAL_VERBAL_FORM,
+  PLURAL_VERBAL_FORM,
+  PLURAL_VERBAL_FORM,
+  PLURAL_VERBAL_FORM,
+  PLURAL_VERBAL_FORM
 };
 
 
-int ledArray[144];
+//int ledArray[144];
 
 unsigned int lastTimeInMinutes = 0;
 
@@ -99,7 +109,7 @@ unsigned int lastTimeInMinutes = 0;
 void currentTimeAsWords(char* outputBuffer, int hours, const int minutes) 
 {
   //clear buffer
-  memset(outputBuffer,'\0',144);
+  memset(outputBuffer,'\0',80);
 
   //convert minutes to nearest multiple of 5
   int indexForMinutes = (minutes / 5);
@@ -112,9 +122,9 @@ void currentTimeAsWords(char* outputBuffer, int hours, const int minutes)
   hoursComponentInWords = hoursInWords[fixedHours];
 
   int indexForTmpl = fixedHours % 12;
-  const char* tmpl = hourTemplates[indexForTmpl];
+  int tmplIndex = hourTemplates[indexForTmpl];
 
-  const char* tmplPointer = tmpl;
+  const char* tmplPointer = verbalForms[tmplIndex];
   char* outputBufferPointer = outputBuffer;
 
   while ( (*tmplPointer) != '\0') 
@@ -155,13 +165,11 @@ void currentTimeAsWords(char* outputBuffer, int hours, const int minutes)
   }
 }
 
-void fillLedsArrayNeededToWriteTime(const char* timeInWords, int* ledArray, char* charMatrix)
+void fillLedsArrayNeededToWriteTime(const char* timeInWords, char* charMatrix)
 {
   //delimiter between words
   const char delimiter = ' ';
   //reset the global array
-  memset(ledArray,-1,144);
-  
   const char* tokenStringPointer = timeInWords;
   const char* tokenStart = tokenStringPointer; 
   const char* matrixScanner = charMatrix; 
@@ -192,13 +200,13 @@ void fillLedsArrayNeededToWriteTime(const char* timeInWords, int* ledArray, char
 
           for (size_t i = 0; i < numberOfChars; i++)
           {
-            ledArray[ledArrayIndex] = indexOfFirstChar + i;
-            ledArrayIndex++;
+            leds[i]=  CRGB::White;
           }
        }
 
        if ((*tokenStringPointer) == '\0')
        {
+          FastLED.show();
           break;
        }  
        else 
@@ -208,10 +216,9 @@ void fillLedsArrayNeededToWriteTime(const char* timeInWords, int* ledArray, char
        }
     }
   }
-
-
-  
 }
+
+
 
 // the setup function runs once when you press reset or power the board
 void setup() {
@@ -227,6 +234,9 @@ void setup() {
     // following line sets the RTC to the date & time this sketch was compiled
      rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
+
+    FastLED.addLeds<WS2811, LED_PIN, GRB>(leds, 144).setCorrection( TypicalLEDStrip );
+    FastLED.setBrightness(80);
 }
 
 // the loop function runs over and over again forever
@@ -247,15 +257,9 @@ void loop() {
       Serial.print(":");
       Serial.println(currentMinutes);
 
-      fillLedsArrayNeededToWriteTime(ouputBuffer,ledArray,charMatrix);
-      size_t arrayIndex=0;
-      while (ledArray[arrayIndex] != -1)
-      {
-        Serial.println((int)ledArray[arrayIndex]);
-        arrayIndex++;
-      }
-      
-      
+      FastLED.clear(true);
+      fillLedsArrayNeededToWriteTime(ouputBuffer,charMatrix);
+
     }
 
     delay(10000);
