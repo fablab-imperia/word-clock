@@ -25,12 +25,12 @@ Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
 
 
 
-const unsigned int verbalForms[2][6] = {
+const unsigned char verbalForms[2][6] = {
    {0,200,200,200,200,200}, //E'
    {24,25,26,27,34,35} //SONO LE
 };
 
- const unsigned int hours[13][12] = {
+ const unsigned char hours[13][12] = {
   {1,2,3,4,5,6,7,8,9,10,11,200},  //"MEZZANOTTE",
   {29,30,31,32,200,200,200,200,200,200,200,200},  //L'UNA,
   {45,46,47,200,200,200,200,200,200,200,200,200},  //DUE
@@ -46,7 +46,7 @@ const unsigned int verbalForms[2][6] = {
   {12,13,14,15,16,17,18,19,20,21,22,23} //MEZZOGIORNO
 };
 
-const unsigned int minutes[11][16] = {
+const unsigned char minutes[11][16] = {
   {83,132,133,134,135,136,137,200,200,200,200,200,200,200,200,200}, //E CINQUE
   {83,96,97,98,99,100,200,200,200,200,200,200,200,200,200,200}, //E DIECI
   {83,101,102,138,139,140,141,142,143,200,200,200,200,200,200,200}, //E UN QUARTO
@@ -84,16 +84,7 @@ void setup() {
     FastLED.setBrightness(80);
 }
 
-// the loop function runs over and over again forever
-void loop() {
-    DateTime now = rtc.now();
-    int currentHours = now.hour();
-    int currentMinutes = now.minute();
-
-    Serial.print(currentHours);
-    Serial.print(":");
-    Serial.println(currentMinutes);
-    
+void turnOnLedsForVerbalForm(int currentHours, int currentMinutes){
     int verbalFormIndex = (currentHours == 12 || currentHours == 13 || currentHours == 0)? 0 : 1;
 
     //Index for verbal form
@@ -111,9 +102,81 @@ void loop() {
             Serial.print(" ");
         }
     }
-    FastLED.show();
-    Serial.println();
+}
+
+void turnOnLedsForHours(int currentHours, int currentMinutes){
     
+    //Caso speciale per "meno un quarto"
+    int arrangedHours = (currentMinutes == 45)? (currentHours+ 1) % 24 : currentHours;
+
+    int indexOfHours = (arrangedHours > 12)? arrangedHours - 12: arrangedHours;
+
+    //Index for verbal form
+    for (size_t i = 0; i < 12; i++)
+    {
+        unsigned int ledToTurnOn = hours[indexOfHours][i];
+        if (ledToTurnOn ==  200)
+        {
+            break;
+        } 
+        else 
+        {
+            leds[ledToTurnOn] = CRGB::White;
+            Serial.print(ledToTurnOn);
+            Serial.print(" ");
+        }
+    }
+}
+
+void turnOnLedsForMinutes(int currentMinutes){
+    
+    int arrangedMinutes = currentMinutes / 5 * 5; //get nearest multiple of 5
+    int indexOfMinutes = arrangedMinutes / 5 -1;
+
+    //Index for verbal form
+    for (size_t i = 0; i < 16; i++)
+    {
+        unsigned int ledToTurnOn = hours[indexOfMinutes][i];
+        if (ledToTurnOn ==  200)
+        {
+            break;
+        } 
+        else 
+        {
+            leds[ledToTurnOn] = CRGB::White;
+            Serial.print(ledToTurnOn);
+            Serial.print(" ");
+        }
+    }
+}
+
+
+bool shouldUpdateLedMatrix(int currentHours, int currentMinutes, int updatePeriodInMinutes) 
+{
+    return ((currentMinutes + currentHours*60) % updatePeriodInMinutes) == 0;
+}
+
+// the loop function runs over and over again forever
+void loop() {
+    DateTime now = rtc.now();
+    int currentHours = now.hour();
+    int currentMinutes = now.minute();
+
+    Serial.print(currentHours);
+    Serial.print(":");
+    Serial.println(currentMinutes);
+    
+    if (shouldUpdateLedMatrix(currentHours, currentMinutes, 5)) {
+
+      //torn off all LEDS
+      FastLED.clearData();
+      turnOnLedsForVerbalForm(currentHours, currentMinutes);
+      turnOnLedsForHours(currentHours, currentMinutes);
+      turnOnLedsForMinutes(currentMinutes);
+
+      //Update leds
+      FastLED.show();
+    }
 
     delay(10000);
 }
