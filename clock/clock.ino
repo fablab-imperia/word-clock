@@ -6,6 +6,8 @@
 #include <Wire.h>
 
 #include "FastLED.h"
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 #define UPDATE_PERIOD_MINUTES 1
 #define LED_PIN  5   
@@ -19,204 +21,47 @@ RTC_DS1307 rtc;
 
 
 char ouputBuffer[80];
+Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
 
 
-char charMatrix[145] = 
-{
-  '!','[','M','E','Z','Z','A','N','O','T','T','E', 
-  ']','M','E','Z','Z','O','G','I','O','R','N','O',
-  'S','O','N','O','E','^','U','N','A','V','L','E',
-  'D','U','E','T','R','E','C','I','N','Q','U','E',
-  'Q','U','A','T','T','R','O','S','E','T','T','E',
-  'S','E','I','O','T','T','O','D','I','E','C','I',
-  'N','O','V','E','U','N','D','I','C','I','U','E',
-  'M','E','N','O','Q','U','A','R','A','N','T','A',
-  'D','I','E','C','I','U','N','M','E','Z','Z','A',
-  'V','E','N','T','I','C','T','R','E','N','T','A',
-  'M','C','I','N','Q','U','A','N','T','A','G','S',
-  'Q','U','A','R','T','O','C','I','N','Q','U','E','\0'
+
+const unsigned int verbalForms[2][6] = {
+   {0,200,200,200,200,200}, //E'
+   {24,25,26,27,34,35} //SONO LE
 };
 
-const char* verbalForms[] = {
-  "! $H $M",
-  "SONO $H $M"
+ const unsigned int hours[13][12] = {
+  {1,2,3,4,5,6,7,8,9,10,11,200},  //"MEZZANOTTE",
+  {29,30,31,32,200,200,200,200,200,200,200,200},  //L'UNA,
+  {45,46,47,200,200,200,200,200,200,200,200,200},  //DUE
+  {42,43,44,200,200,200,200,200,200,200,200,200}, //TRE
+  {48,49,50,51,52,53,54,200,200,200,200,200}, //QUATTRO
+  {36,37,38,39,40,41,200,200,200,200,200,200},  //CINQUE
+  {69,70,71,200,200,200,200,200,200,200,200,200},  //SEI
+  {55,56,57,58,59,200,200,200,200,200,200,200},  //SETTE
+  {65,66,67,68,200,200,200,200,200,200,200,200}, //OTTO
+  {72,73,74,75,200,200,200,200,200,200,200,200}, //NOVE
+  {60,61,62,63,64,200,200,200,200,200,200,200},  //DIECI
+  {76,77,78,79,80,81,200,200,200,200,200,200}, //UNDICI
+  {12,13,14,15,16,17,18,19,20,21,22,23} //MEZZOGIORNO
 };
 
- const char* hoursInWords[] = {
-  "MEZZANOTTE",
-  "^UNA",
-  "LE DUE",
-  "LE TRE",
-  "LE QUATTRO",
-  "LE CINQUE",
-  "LE SEI",
-  "LE SETTE",
-  "LE OTTO",
-  "LE NOVE",
-  "LE DIECI",
-  "LE UNDICI",
-  "MEZZOGIORNO",
-  "^UNA",
-  "LE DUE",
-  "LE TRE",
-  "LE QUATTRO",
-  "LE CINQUE",
-  "LE SEI",
-  "LE SETTE",
-  "LE OTTO",
-  "LE NOVE",
-  "LE DIECI",
-  "LE UNDICI"  
+const unsigned int minutes[11][16] = {
+  {83,132,133,134,135,136,137,200,200,200,200,200,200,200,200,200}, //E CINQUE
+  {83,96,97,98,99,100,200,200,200,200,200,200,200,200,200,200}, //E DIECI
+  {83,101,102,138,139,140,141,142,143,200,200,200,200,200,200,200}, //E UN QUARTO
+  {83,115,116,117,118,119,200,200,200,200,200,200,200,200,200,200}, //E VENTI
+  {83,115,116,117,118,119,132,133,134,135,136,137,200,200,200,200}, //E VENTI CINQUE
+  {83,103,104,105,106,107,200,200,200,200,200,200,200,200,200,200}, //E MEZZA
+  {83,108,109,110,111,112,113,132,133,134,135,136,137,200,200,200}, //E TRENTA CINQUE
+  {83,84,85,86,87,88,89,90,91,200,200,200,200,200,200,200}, //E QUARANTA
+  {92,93,94,95,101,102,138,139,140,141,142,143,200,200,200,200}, //MENO UN QUARTO
+  {83,121,122,123,124,125,126,127,128,200,200,200,200,200,200,200}, //E CINQUANTA
+  {83,121,122,123,124,125,126,127,128,132,133,134,135,136,137,200}  //E CINQUANTA CINQUE
 };
 
- const char* minutesInWords[] = {
-  "",
-  "E CINQUE",
-  "E DIECI",
-  "E UN QUARTO",
-  "E VENTI",
-  "E VENTI CINQUE",
-  "E MEZZA",
-  "E TRENTA CINQUE",
-  "MENO VENTI",
-  "MENO UN QUARTO",
-  "MENO DIECI",
-  "MENO CINQUE"
-};
-
- const int hourTemplates[] = {
-  SINGULAR_VERBAL_FORM,
-  SINGULAR_VERBAL_FORM,
-  PLURAL_VERBAL_FORM,
-  PLURAL_VERBAL_FORM,
-  PLURAL_VERBAL_FORM,
-  PLURAL_VERBAL_FORM,
-  PLURAL_VERBAL_FORM,
-  PLURAL_VERBAL_FORM,
-  PLURAL_VERBAL_FORM,
-  PLURAL_VERBAL_FORM,
-  PLURAL_VERBAL_FORM,
-  PLURAL_VERBAL_FORM
-};
-
-
-//int ledArray[144];
 
 unsigned int lastTimeInMinutes = 0;
-
-
-
-void currentTimeAsWords(char* outputBuffer, int hours, const int minutes) 
-{
-  //clear buffer
-  memset(outputBuffer,'\0',80);
-
-  //convert minutes to nearest multiple of 5
-  int indexForMinutes = (minutes / 5);
-  const char* minutesComponentInWords = minutesInWords[indexForMinutes];   
-
-  const char* hoursComponentInWords = NULL;
-
-  // If minutes are more than 35 we must increase hours
-  int fixedHours = (minutes > 35)? (hours + 1) % 24 : hours; 
-  hoursComponentInWords = hoursInWords[fixedHours];
-
-  int indexForTmpl = fixedHours % 12;
-  int tmplIndex = hourTemplates[indexForTmpl];
-
-  const char* tmplPointer = verbalForms[tmplIndex];
-  char* outputBufferPointer = outputBuffer;
-
-  while ( (*tmplPointer) != '\0') 
-  {
-     //if char in template string is not special char
-     if ((*tmplPointer) != '$') 
-     {
-        //copy char into output buffer
-        (*outputBufferPointer) = (*tmplPointer);
-        //move on both pointers
-        outputBufferPointer++;
-        tmplPointer++;
-     } 
-     else 
-     {
-      //When a special char is found, we must check if its next is M or H to expand it
-      tmplPointer++;
-      const char* stringToCopyPointer = NULL;
-      //point to the right string to copy
-      if ((*tmplPointer) == 'M')
-      {
-         stringToCopyPointer = minutesComponentInWords;      
-      } 
-      else 
-      {
-        stringToCopyPointer = hoursComponentInWords;
-      }
-      //In any case copy each char
-      while((*stringToCopyPointer) != '\0')
-      {
-        (*outputBufferPointer) = (*stringToCopyPointer);
-        outputBufferPointer++;
-        stringToCopyPointer++;
-      }
-      //move tmplPointer to next char
-      tmplPointer++;
-     }
-  }
-}
-
-void fillLedsArrayNeededToWriteTime(const char* timeInWords, char* charMatrix)
-{
-  //delimiter between words
-  const char delimiter = ' ';
-  //reset the global array
-  const char* tokenStringPointer = timeInWords;
-  const char* tokenStart = tokenStringPointer; 
-  const char* matrixScanner = charMatrix; 
-  int ledArrayIndex= 0;
-
-  char currentToken[50];
-
-  while (true) 
-  {
-    if ((*tokenStringPointer) !=  delimiter && (*tokenStringPointer) != '\0') 
-    {
-      tokenStringPointer++;
-    } 
-    else 
-    {
-       size_t numberOfChars = tokenStringPointer - tokenStart;
-       for (size_t i = 0; i < numberOfChars; i++)
-       {
-         currentToken[i] = (*tokenStart);
-         tokenStart++;
-       }
-       currentToken[numberOfChars]= '\0';
-
-       matrixScanner = strstr(matrixScanner,currentToken);
-       if (matrixScanner != NULL)
-       {
-          int indexOfFirstChar = matrixScanner - charMatrix;
-
-          for (size_t i = 0; i < numberOfChars; i++)
-          {
-            leds[i]=  CRGB::White;
-          }
-       }
-
-       if ((*tokenStringPointer) == '\0')
-       {
-          FastLED.show();
-          break;
-       }  
-       else 
-       {
-          tokenStringPointer++;
-          tokenStart = tokenStringPointer;
-       }
-    }
-  }
-}
 
 
 
@@ -244,23 +89,31 @@ void loop() {
     DateTime now = rtc.now();
     int currentHours = now.hour();
     int currentMinutes = now.minute();
-    unsigned int currentTimeInMinutes = currentHours*60 + currentMinutes;
-    if ((lastTimeInMinutes == 0) || currentTimeInMinutes == (lastTimeInMinutes + UPDATE_PERIOD_MINUTES) % 1440 ) 
-    {
-      currentTimeAsWords(ouputBuffer, currentHours, currentMinutes);
-      lastTimeInMinutes = currentTimeInMinutes;
+
+    Serial.print(currentHours);
+    Serial.print(":");
+    Serial.println(currentMinutes);
     
-      Serial.print("In words: ");
-      Serial.println(ouputBuffer);
+    int verbalFormIndex = (currentHours == 12 || currentHours == 13 || currentHours == 0)? 0 : 1;
 
-      Serial.print(currentHours);
-      Serial.print(":");
-      Serial.println(currentMinutes);
-
-      FastLED.clear(true);
-      fillLedsArrayNeededToWriteTime(ouputBuffer,charMatrix);
-
+    //Index for verbal form
+    for (size_t i = 0; i < 6; i++)
+    {
+        unsigned int ledToTurnOn = verbalForms[verbalFormIndex][i];
+        if (ledToTurnOn ==  200)
+        {
+            break;
+        } 
+        else 
+        {
+            leds[ledToTurnOn] = CRGB::White;
+            Serial.print(ledToTurnOn);
+            Serial.print(" ");
+        }
     }
+    FastLED.show();
+    Serial.println();
+    
 
     delay(10000);
 }
