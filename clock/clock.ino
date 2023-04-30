@@ -6,11 +6,13 @@
 #include <Wire.h>
 
 #include "FastLED.h"
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+
+#include <LiquidCrystal_I2C.h>
 
 #define UPDATE_PERIOD_MINUTES 1
-#define LED_PIN  5   
+#define LED_PIN  9   
+#define SCREEN_ADDRESS 0x3C
+#define OLED_RESET     -1 
 
 #define SINGULAR_VERBAL_FORM 0
 #define PLURAL_VERBAL_FORM 1
@@ -18,12 +20,7 @@
 CRGB leds[144];
 
 RTC_DS1307 rtc;
-
-
-char ouputBuffer[80];
-Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
-
-
+LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 const unsigned char verbalForms[2][6] = {
    {0,200,200,200,200,200}, //E'
@@ -31,7 +28,7 @@ const unsigned char verbalForms[2][6] = {
 };
 
  const unsigned char hours[13][12] = {
-  {1,2,3,4,5,6,7,8,9,10,11,200},  //"MEZZANOTTE",
+  {2,3,4,5,6,7,8,9,10,11,200,200},  //"MEZZANOTTE",
   {29,30,31,32,200,200,200,200,200,200,200,200},  //L'UNA,
   {45,46,47,200,200,200,200,200,200,200,200,200},  //DUE
   {42,43,44,200,200,200,200,200,200,200,200,200}, //TRE
@@ -43,7 +40,7 @@ const unsigned char verbalForms[2][6] = {
   {72,73,74,75,200,200,200,200,200,200,200,200}, //NOVE
   {60,61,62,63,64,200,200,200,200,200,200,200},  //DIECI
   {76,77,78,79,80,81,200,200,200,200,200,200}, //UNDICI
-  {12,13,14,15,16,17,18,19,20,21,22,23} //MEZZOGIORNO
+  {12,13,14,15,16,17,18,19,20,21,22,200} //MEZZOGIORNO
 };
 
 const unsigned char minutes[11][16] = {
@@ -56,12 +53,12 @@ const unsigned char minutes[11][16] = {
   {83,108,109,110,111,112,113,132,133,134,135,136,137,200,200,200}, //E TRENTA CINQUE
   {83,84,85,86,87,88,89,90,91,200,200,200,200,200,200,200}, //E QUARANTA
   {92,93,94,95,101,102,138,139,140,141,142,143,200,200,200,200}, //MENO UN QUARTO
-  {83,121,122,123,124,125,126,127,128,200,200,200,200,200,200,200}, //E CINQUANTA
-  {83,121,122,123,124,125,126,127,128,132,133,134,135,136,137,200}  //E CINQUANTA CINQUE
+  {83,121,122,123,124,125,126,127,128,129,200,200,200,200,200,200}, //E CINQUANTA
+  {83,121,122,123,124,125,126,127,128,129,132,133,134,135,136,137}  //E CINQUANTA CINQUE
 };
 
 
-unsigned int lastTimeInMinutes = 0;
+bool isFirstRun = true;
 
 
 
@@ -69,10 +66,15 @@ unsigned int lastTimeInMinutes = 0;
 void setup() {
 
   Serial.begin(9600);
+
   if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
     while (1);
   }
+
+  lcd.init();                      // initialize the lcd 
+  // Print a message to the LCD.
+  lcd.backlight();
 
   if (! rtc.isrunning()) {
     Serial.println("RTC is NOT running!");
@@ -82,6 +84,20 @@ void setup() {
 
     FastLED.addLeds<WS2811, LED_PIN, GRB>(leds, 144).setCorrection( TypicalLEDStrip );
     FastLED.setBrightness(80);
+}
+
+void turnOnSpecialSymbols(int currentHours, int currentMinutes) 
+{
+    int ledIndex = (currentHours == 0 && currentMinutes == 0)?  1 : ((currentHours == 12 && currentMinutes == 0)? 23 : -1);
+
+    if (ledIndex == -1)
+      return;
+    
+    if (ledIndex  == 1)
+      leds[ledIndex] = CRGB::Blue;
+    else 
+      leds[ledIndex] = CRGB::Yellow;
+
 }
 
 void turnOnLedsForVerbalForm(int currentHours, int currentMinutes){
@@ -102,6 +118,7 @@ void turnOnLedsForVerbalForm(int currentHours, int currentMinutes){
             Serial.print(" ");
         }
     }
+    Serial.println();
 }
 
 void turnOnLedsForHours(int currentHours, int currentMinutes){
@@ -126,17 +143,22 @@ void turnOnLedsForHours(int currentHours, int currentMinutes){
             Serial.print(" ");
         }
     }
+    Serial.println();
 }
 
 void turnOnLedsForMinutes(int currentMinutes){
     
+    // if minutes are 0 must not turn on led
+    if (currentMinutes == 0)
+      return;
+
     int arrangedMinutes = currentMinutes / 5 * 5; //get nearest multiple of 5
     int indexOfMinutes = arrangedMinutes / 5 -1;
 
     //Index for verbal form
     for (size_t i = 0; i < 16; i++)
     {
-        unsigned int ledToTurnOn = hours[indexOfMinutes][i];
+        unsigned int ledToTurnOn = minutes[indexOfMinutes][i];
         if (ledToTurnOn ==  200)
         {
             break;
@@ -148,6 +170,15 @@ void turnOnLedsForMinutes(int currentMinutes){
             Serial.print(" ");
         }
     }
+    Serial.println();
+}
+
+
+void printTimeOnDisplay(int currentHours, int currentMinutes) {
+    lcd.setCursor(5,0);
+    char outputStr[6];
+    snprintf(outputStr,5,"%2d:%2d",currentHours, currentMinutes);
+    lcd.print(outputStr);
 }
 
 
@@ -166,17 +197,20 @@ void loop() {
     Serial.print(":");
     Serial.println(currentMinutes);
     
-    if (shouldUpdateLedMatrix(currentHours, currentMinutes, 5)) {
-
-      //torn off all LEDS
+    if (isFirstRun || shouldUpdateLedMatrix(currentHours, currentMinutes, 5)) {
+      Serial.println("aggiorno");
+      isFirstRun = false;
+      //turn off all LEDS
       FastLED.clearData();
       turnOnLedsForVerbalForm(currentHours, currentMinutes);
       turnOnLedsForHours(currentHours, currentMinutes);
       turnOnLedsForMinutes(currentMinutes);
-
+      turnOnSpecialSymbols(currentHours, currentMinutes); 
       //Update leds
       FastLED.show();
-    }
+    } 
 
+    printTimeOnDisplay(currentHours, currentMinutes);
+  
     delay(10000);
 }
