@@ -1,16 +1,15 @@
 #include <Arduino.h>
- #include <SPI.h>
-//For RTC support
+#include <SPI.h>
 #include "RTClib.h"
-// Generic I2C support
 #include <Wire.h>
-
 #include "FastLED.h"
-
 #include <LiquidCrystal_I2C.h>
+#include <EasyButton.h>
 
 #define UPDATE_PERIOD_MINUTES 1
-#define LED_PIN  9   
+#define LED_PIN  9
+#define BUTTON_HOURS_UP 6
+#define BUTTON_MINUTES_UP 7   
 #define SCREEN_ADDRESS 0x3C
 #define OLED_RESET     -1 
 
@@ -21,6 +20,9 @@ CRGB leds[144];
 
 RTC_DS1307 rtc;
 LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
+
+EasyButton buttonHoursUp(BUTTON_HOURS_UP, 35U, true, false);
+EasyButton buttonMinutesUp(BUTTON_MINUTES_UP, 35U, true, false);
 
 const unsigned char verbalForms[2][6] = {
    {0,200,200,200,200,200}, //E'
@@ -58,33 +60,8 @@ const unsigned char minutes[11][16] = {
 };
 
 
-bool isFirstRun = true;
+bool mustUpdateLedMatrix = true;
 
-
-
-// the setup function runs once when you press reset or power the board
-void setup() {
-
-  Serial.begin(9600);
-
-  if (! rtc.begin()) {
-    Serial.println("Couldn't find RTC");
-    while (1);
-  }
-
-  lcd.init();                      // initialize the lcd 
-  // Print a message to the LCD.
-  lcd.backlight();
-
-  if (! rtc.isrunning()) {
-    Serial.println("RTC is NOT running!");
-    // following line sets the RTC to the date & time this sketch was compiled
-     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  }
-
-    FastLED.addLeds<WS2811, LED_PIN, GRB>(leds, 144).setCorrection( TypicalLEDStrip );
-    FastLED.setBrightness(80);
-}
 
 void turnOnSpecialSymbols(int currentHours, int currentMinutes) 
 {
@@ -177,7 +154,7 @@ void turnOnLedsForMinutes(int currentMinutes){
 void printTimeOnDisplay(int currentHours, int currentMinutes) {
     lcd.setCursor(5,0);
     char outputStr[6];
-    snprintf(outputStr,5,"%2d:%2d",currentHours, currentMinutes);
+    snprintf(outputStr,6,"%02d:%02d",currentHours, currentMinutes);
     lcd.print(outputStr);
 }
 
@@ -187,9 +164,59 @@ bool shouldUpdateLedMatrix(int currentHours, int currentMinutes, int updatePerio
     return ((currentMinutes + currentHours*60) % updatePeriodInMinutes) == 0;
 }
 
+// the setup function runs once when you press reset or power the board
+void setup() {
+
+  Serial.begin(9600);
+
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    while (1);
+  }
+
+  lcd.init();                      // initialize the lcd 
+  // Print a message to the LCD.
+  lcd.backlight();
+
+  if (! rtc.isrunning()) {
+    Serial.println("RTC is NOT running!");
+    // following line sets the RTC to the date & time this sketch was compiled
+     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+
+    FastLED.addLeds<WS2811, LED_PIN, GRB>(leds, 144).setCorrection( TypicalLEDStrip );
+    FastLED.setBrightness(80);
+
+    buttonHoursUp.begin();
+    buttonMinutesUp.begin();
+}
+
+
+
+
+
 // the loop function runs over and over again forever
 void loop() {
     DateTime now = rtc.now();
+    buttonHoursUp.read();
+    buttonMinutesUp.read();
+
+    if (buttonHoursUp.wasPressed()) 
+    {
+      uint8_t hours = (now.hour() + 1) % 24;
+      rtc.adjust(DateTime(now.year(),now.month(),now.day(),hours,now.minute(),now.second()));
+      now = rtc.now();
+      mustUpdateLedMatrix = true;
+    }
+
+    if (buttonMinutesUp.wasPressed()) 
+    {
+      uint8_t minutes = (now.minute() + 1) % 60;
+      rtc.adjust(DateTime(now.year(),now.month(),now.day(),now.hour(),minutes,now.second()));
+      now = rtc.now();
+      mustUpdateLedMatrix = true;
+    }
+
     int currentHours = now.hour();
     int currentMinutes = now.minute();
 
@@ -197,9 +224,9 @@ void loop() {
     Serial.print(":");
     Serial.println(currentMinutes);
     
-    if (isFirstRun || shouldUpdateLedMatrix(currentHours, currentMinutes, 5)) {
+    if (mustUpdateLedMatrix || shouldUpdateLedMatrix(currentHours, currentMinutes, 5)) {
       Serial.println("aggiorno");
-      isFirstRun = false;
+      mustUpdateLedMatrix = false;
       //turn off all LEDS
       FastLED.clearData();
       turnOnLedsForVerbalForm(currentHours, currentMinutes);
@@ -208,9 +235,9 @@ void loop() {
       turnOnSpecialSymbols(currentHours, currentMinutes); 
       //Update leds
       FastLED.show();
+
     } 
 
     printTimeOnDisplay(currentHours, currentMinutes);
-  
-    delay(10000);
+    delay(50);
 }
