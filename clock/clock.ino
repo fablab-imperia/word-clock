@@ -4,13 +4,14 @@
 #include "RTClib.h"
 // Generic I2C support
 #include <Wire.h>
+#include <TM1637Display.h>
+#include <FastLED.h>
 
-#include "FastLED.h"
-
-#include <LiquidCrystal_I2C.h>
 
 #define UPDATE_PERIOD_MINUTES 1
 #define LED_PIN  9   
+#define CLK_PIN 2
+#define DIO_PIN 3
 #define SCREEN_ADDRESS 0x3C
 #define OLED_RESET     -1 
 
@@ -20,7 +21,7 @@
 CRGB leds[144];
 
 RTC_DS1307 rtc;
-LiquidCrystal_I2C lcd(0x3F,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
+TM1637Display display(CLK_PIN, DIO_PIN);
 
 const unsigned char verbalForms[2][6] = {
    {0,200,200,200,200,200}, //E'
@@ -72,9 +73,11 @@ void setup() {
     while (1);
   }
 
-  lcd.init();                      // initialize the lcd 
-  // Print a message to the LCD.
-  lcd.backlight();
+	// Set the display brightness (0-7)
+	display.setBrightness(7);
+	// Clear the display
+	display.clear();
+
 
   if (! rtc.isrunning()) {
     Serial.println("RTC is NOT running!");
@@ -175,10 +178,10 @@ void turnOnLedsForMinutes(int currentMinutes){
 
 
 void printTimeOnDisplay(int currentHours, int currentMinutes) {
-    lcd.setCursor(5,0);
-    char outputStr[6];
-    snprintf(outputStr,5,"%2d:%2d",currentHours, currentMinutes);
-    lcd.print(outputStr);
+  // Create time format to display as single decimal value
+	int displaytime = (currentHours * 100) + currentMinutes;
+  	// Display the current time in 24 hour format with leading zeros and a center colon enabled
+	display.showNumberDecEx(displaytime, 0b11100000, true);
 }
 
 
@@ -198,7 +201,6 @@ void loop() {
     Serial.println(currentMinutes);
     
     if (isFirstRun || shouldUpdateLedMatrix(currentHours, currentMinutes, 5)) {
-      Serial.println("aggiorno");
       isFirstRun = false;
       //turn off all LEDS
       FastLED.clearData();
