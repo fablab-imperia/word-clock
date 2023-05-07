@@ -8,10 +8,11 @@
 
 #define UPDATE_PERIOD_MINUTES 1
 #define LED_PIN  9   
+#define CLK_PIN 2
+#define DIO_PIN 3
 #define BUTTON_HOURS_UP 6
 #define BUTTON_MINUTES_UP 7   
 #define SCREEN_ADDRESS 0x3C
-#define OLED_RESET     -1 
 
 #define SINGULAR_VERBAL_FORM 0
 #define PLURAL_VERBAL_FORM 1
@@ -19,6 +20,11 @@
 CRGB leds[144];
 
 RTC_DS1307 rtc;
+
+TM1637Display display(CLK_PIN, DIO_PIN);
+
+EasyButton buttonHoursUp(BUTTON_HOURS_UP, 35U, true, false);
+EasyButton buttonMinutesUp(BUTTON_MINUTES_UP, 35U, true, false);
 
 
 const unsigned char verbalForms[2][6] = {
@@ -60,30 +66,7 @@ const unsigned char minutes[11][16] = {
 bool mustUpdateLedMatrix = true;
 
 
-// the setup function runs once when you press reset or power the board
-void setup() {
 
-  Serial.begin(9600);
-
-  if (! rtc.begin()) {
-    Serial.println("Couldn't find RTC");
-    while (1);
-  }
-
-	// Set the display brightness (0-7)
-	display.setBrightness(7);
-	// Clear the display
-	display.clear();
-
-  if (! rtc.isrunning()) {
-    Serial.println("RTC is NOT running!");
-    // following line sets the RTC to the date & time this sketch was compiled
-     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  }
-
-    FastLED.addLeds<WS2811, LED_PIN, GRB>(leds, 144).setCorrection( TypicalLEDStrip );
-    FastLED.setBrightness(80);
-}
 
 void turnOnSpecialSymbols(int currentHours, int currentMinutes) 
 {
@@ -196,9 +179,6 @@ void setup() {
     while (1);
   }
 
-  lcd.init();                      // initialize the lcd 
-  // Print a message to the LCD.
-  lcd.backlight();
 
   if (! rtc.isrunning()) {
     Serial.println("RTC is NOT running!");
@@ -209,10 +189,15 @@ void setup() {
     FastLED.addLeds<WS2811, LED_PIN, GRB>(leds, 144).setCorrection( TypicalLEDStrip );
     FastLED.setBrightness(80);
 
+    // Set the display brightness (0-7)
+    display.setBrightness(7);
+    // Clear the display
+    display.clear();
+
+
     buttonHoursUp.begin();
     buttonMinutesUp.begin();
 }
-
 
 
 
