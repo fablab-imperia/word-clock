@@ -20,6 +20,9 @@
 #define SINGULAR_VERBAL_FORM 0
 #define PLURAL_VERBAL_FORM 1
 
+#define BRIGHTNESS_DISPLAY 2
+#define BRIGHTNESS_LED 80
+
 CRGB leds[144];
 
 RTC_DS1307 rtc;
@@ -30,58 +33,20 @@ EasyButton buttonHoursUp(BUTTON_HOURS_UP, 35U, true, false);
 EasyButton buttonMinutesUp(BUTTON_MINUTES_UP, 35U, true, false);
 
 
-/*
-DA ALTO VERSO BASSO
+bool mustUpdateLedMatrix = true;
 
-const unsigned char verbalForms[2][6] = {
-   {0,200,200,200,200,200}, //E'
-   {24,25,26,27,34,35} //SONO LE-
-};
-
- const unsigned char hours[13][12] = {
-  {2,3,4,5,6,7,8,9,10,11,200,200},  //"MEZZANOTTE",
-  {29,30,31,32,200,200,200,200,200,200,200,200},  //L'UNA,
-  {45,46,47,200,200,200,200,200,200,200,200,200},  //DUE.-+
-
-  {42,43,44,200,200,200,200,200,200,200,200,200}, //TRE
-  {48,49,50,51,52,53,54,200,200,200,200,200}, //QUATTRO
-  {36,37,38,39,40,41,200,200,200,200,200,200},  //CINQUE
-  {69,70,71,200,200,200,200,200,200,200,200,200},  //SEI
-  {55,56,57,58,59,200,200,200,200,200,200,200},  //SETTE
-  {65,66,67,68,200,200,200,200,200,200,200,200}, //OTTO
-  {72,73,74,75,200,200,200,200,200,200,200,200}, //NOVE
-  {60,61,62,63,64,200,200,200,200,200,200,200},  //DIECI
-  {76,77,78,79,80,81,200,200,200,200,200,200}, //UNDICI
-  {12,13,14,15,16,17,18,19,20,21,22,200} //MEZZOGIORNO
-};
-
-const unsigned char minutes[11][16] = {
-  {83,132,133,134,135,136,137,200,200,200,200,200,200,200,200,200}, //E CINQUE
-  {83,96,97,98,99,100,200,200,200,200,200,200,200,200,200,200}, //E DIECI
-  {83,101,102,138,139,140,141,142,143,200,200,200,200,200,200,200}, //E UN QUARTO
-  {83,115,116,117,118,119,200,200,200,200,200,200,200,200,200,200}, //E VENTI
-  {83,115,116,117,118,119,132,133,134,135,136,137,200,200,200,200}, //E VENTI CINQUE
-  {83,103,104,105,106,107,200,200,200,200,200,200,200,200,200,200}, //E MEZZA
-  {83,108,109,110,111,112,113,132,133,134,135,136,137,200,200,200}, //E TRENTA CINQUE
-  {83,84,85,86,87,88,89,90,91,200,200,200,200,200,200,200}, //E QUARANTA
-  {92,93,94,95,101,102,138,139,140,141,142,143,200,200,200,200}, //MENO UN QUARTO
-  {83,121,122,123,124,125,126,127,128,129,200,200,200,200,200,200}, //E CINQUANTA
-  {83,121,122,123,124,125,126,127,128,129,132,133,134,135,136,137}  //E CINQUANTA CINQUE
-};
-*/
-
+// DA BASSO VERSO ALTO
 const unsigned char specialSymbols[]  = {
   133, //LUNA
   131 //SOLE
 };
 
-// DA BASSO VERSO ALTO
 const unsigned char verbalForms[2][6] = {
-   {132,200,200,200,200,200}, //E'
-   {108,109,110,111,118,119} //SONO LE-
+  {132,200,200,200,200,200}, //E'
+  {108,109,110,111,118,119} //SONO LE-
 };
 
- const unsigned char hours[13][12] = {
+const unsigned char hours[13][12] = {
   {134,135,136,137,138,139,140,141,142,143,200,200},  //MEZZANOTTE
   {113,114,115,116,200,200,200,200,200,200,200,200},  //L'UNA
   {105,106,107,200,200,200,200,200,200,200,200,200},  //DUE
@@ -110,11 +75,6 @@ const unsigned char minutes[11][16] = {
   {71,13,14,15,16,17,18,19,20,21,200,200,200,200,200,200}, //E CINQUANTA
   {71,13,14,15,16,17,18,19,20,21,0,1,2,3,4,5}  //E CINQUANTA CINQUE
 };
-
-
-
-bool mustUpdateLedMatrix = true;
-
 
 
 
@@ -237,10 +197,10 @@ void setup() {
   }
 
     FastLED.addLeds<WS2811, LED_PIN, GRB>(leds, 144).setCorrection( TypicalLEDStrip );
-    FastLED.setBrightness(80);
+    FastLED.setBrightness(BRIGHTNESS_LED);
 
     // Set the display brightness (0-7)
-    display.setBrightness(7);
+    display.setBrightness(BRIGHTNESS_DISPLAY);
     // Clear the display
     display.clear();
 
