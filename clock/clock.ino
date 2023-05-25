@@ -29,8 +29,8 @@ RTC_DS1307 rtc;
 
 TM1637Display display(CLK_PIN, DIO_PIN);
 
-EasyButton buttonHoursUp(BUTTON_HOURS_UP, 35U, true, false);
-EasyButton buttonMinutesUp(BUTTON_MINUTES_UP, 35U, true, false);
+EasyButton buttonHoursUp(BUTTON_HOURS_UP, 35U, false, false);
+EasyButton buttonMinutesUp(BUTTON_MINUTES_UP, 35U, false, false);
 
 
 bool mustUpdateLedMatrix = true;
