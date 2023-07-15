@@ -12,7 +12,7 @@
 
   <p align="center">
     This repository contains the software and hardware components (KiKad files)
-    used by [Fablab Imperia](https://www.fablabimperia.org) to build its amazing Word Clock! 
+    used by <a href="https://www.fablabimperia.org"> Fablab Imperia </a> to build its amazing Word Clock! 
   </p>
 </div>
 
