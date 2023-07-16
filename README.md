@@ -65,6 +65,7 @@ You are free to fork this project and use it as a base for your own implementati
 
 ### Bill of materials
 
+* 1 Arduino Mini
 * 
 
 ### Prerequisites
